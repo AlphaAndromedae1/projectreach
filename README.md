@@ -60,13 +60,13 @@ is "not an Xbox disc image" or "not Halo: Combat Evolved" means you picked the w
 
 ### PC edition (optional): Custom Edition
 
-Add this only if you also want to join the Halo PC community's Custom Edition servers. It needs an
-Apple silicon Mac to build, and these files in one folder:
+Add this only if you also want to join the Halo PC community's Custom Edition servers. It builds on
+an Apple silicon Mac, or [on GitHub without a Mac](docs/BUILD-IN-THE-CLOUD.md), from these files:
 
 - `HaloCESetup.exe`, the original Halo Custom Edition 1.00 installer. Do not use the 1.10 update
   patch; HaloPad downloads Bungie's free update for you.
 - `product-key.txt`, a text file holding your Halo PC product key. Halo will not start without it.
-- [Wine](docs/INSTALL-WINE.md) installed on your Mac.
+- On your own Mac, [Wine](docs/INSTALL-WINE.md). GitHub's build installs it for you.
 
 The retail Halo PC game (`halo.exe`) and the Master Chief Collection are not supported.
 
@@ -83,7 +83,7 @@ Pick the path for the computer you have. Both are free.
 | Your computer | What you can build | How |
 | --- | --- | --- |
 | Mac with Apple silicon | Xbox edition, or both editions | [PadMint](#on-an-apple-silicon-mac) |
-| Windows, Linux, an Intel Mac, or anything else | Xbox edition | [GitHub, in your browser](#on-windows-linux-or-any-computer) |
+| Windows, Linux, an Intel Mac, or anything else | Xbox edition, or both editions | [GitHub, in your browser](#on-windows-linux-or-any-computer) |
 
 [HaloPad 0.3.15](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.15)
 builds OpenCE 343 (network version 41), with dedicated server browsing through native HTTPS.
@@ -115,7 +115,8 @@ If you built both editions, PadMint also makes a **HaloPad game data** folder. C
 
 The Xbox edition can be built without your game files. You add your disc inside the app after
 installing it, so GitHub can build the app for you on its free Mac computers. This works for
-iPhone, iPad and Mac. Custom Edition still needs an Apple silicon Mac.
+iPhone, iPad and Mac. For **both editions**, GitHub can also build from your Custom Edition installer
+and product key, kept private as repository secrets: follow [Build both editions without a Mac](docs/BUILD-IN-THE-CLOUD.md).
 
 1. Sign in to GitHub and **Fork** this repository. Your copy is public, like this one.
 2. In your fork, open **Actions**, enable workflows if asked, choose **Build HaloPad (Xbox edition)**
@@ -223,7 +224,7 @@ and Apple silicon Macs. When your build includes both, it asks which one to open
 | Campaign | The original Xbox campaign | No |
 | Online | Internet and system link games of up to 128 players, with PC, Linux and Android players on OpenCE | Community-run Custom Edition servers and LAN, alongside PC players |
 | Runs on | iPhone, iPad and Mac | iPhone, iPad and Mac |
-| Build on | Any computer: PadMint on a Mac, or GitHub | An Apple silicon Mac with PadMint |
+| Build on | Any computer: PadMint on a Mac, or GitHub | Any computer: PadMint on an Apple silicon Mac, or [GitHub](docs/BUILD-IN-THE-CLOUD.md) |
 | How it runs | [OpenCE](https://github.com/OpenCommunityEdition/OpenCE), the port of the Xbox decompilation, built for Apple devices | Your own `haloce.exe` 1.10, translated from x86 to native ARM64 ahead of time |
 
 For Custom Edition, HaloPad supplies the Windows services the game expects: Direct3D 9 rendered through
@@ -288,9 +289,10 @@ Edition installer plus your product key. Full details are in [What you need](#wh
 <summary><strong>Can I download an IPA?</strong></summary>
 
 No public HaloPad IPA exists today. PadMint builds a personal IPA on your Mac, and on any other
-computer GitHub can build the Xbox edition's IPA in your own fork
-([steps](#on-windows-linux-or-any-computer)). You then sign and install it on your iPhone or iPad.
-The IPA is the app only; your disc image is added afterward and never goes inside it.
+computer GitHub can build the IPA in your own fork: the Xbox edition with no game files
+([steps](#on-windows-linux-or-any-computer)), or both editions from your Custom Edition installer
+and product key ([steps](docs/BUILD-IN-THE-CLOUD.md)). You then sign and install it on your iPhone or iPad.
+Your Xbox disc image is added afterward and never goes inside the IPA.
 
 A simpler **download, install, add your disc, play** route is being evaluated. The Xbox app still
 contains a compiled engine derived from the game, so leaving out the maps does not settle the
@@ -421,7 +423,7 @@ lower-level `scripts/xbox/build-ios.sh` steps.
 
 ## Documentation
 
-[Install guide](docs/INSTALL-IPHONE.md) · [Xbox engine](docs/XBOX-ENGINE.md) ·
+[Install guide](docs/INSTALL-IPHONE.md) · [Build without a Mac](docs/BUILD-IN-THE-CLOUD.md) · [Xbox engine](docs/XBOX-ENGINE.md) ·
 [Status](docs/STATUS.md) · [Journal](docs/JOURNAL.md) · [Execution model](docs/EXECUTION-MODEL.md) ·
 [Graphics contract](docs/GRAPHICS-CONTRACT.md) · [D3D9 inventory](docs/D3D9-INVENTORY.md) ·
 [Runtime and networking](docs/G3-RUNTIME.md) · [Rights status](docs/RIGHTS-STATUS.md)
