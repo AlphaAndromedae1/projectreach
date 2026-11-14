@@ -4,6 +4,11 @@ The **Build HaloPad (both editions, from your game files)** workflow builds Halo
 Xbox edition *and* Halo Custom Edition on GitHub's free Apple silicon Mac computers. It runs the
 same builder PadMint runs on a Mac (`scripts/builder/build.sh`), so you only need a web browser.
 
+> [!NOTE]
+> This route is new. Its tools check (Xcode, Homebrew tools, Wine, winetricks and a 32-bit Windows
+> program under Wine) passes on GitHub's Mac, but a full both-editions build there has not yet been
+> run with real game files. If yours fails, the step's log says where.
+
 Only want the Xbox edition? Use **Build HaloPad (Xbox edition)** instead
 ([steps](../README.md#on-windows-linux-or-any-computer)). It needs no game files at all: you add
 your disc inside the app.
@@ -55,10 +60,10 @@ even the file names are hidden.
 1. Open **Actions › Build HaloPad (both editions, from your game files) › Run workflow**.
 2. Choose **iPhone and iPad** (an IPA) or **Mac**, then **Run workflow**.
    - Optional: tick **Only test the Mac tools and Wine** first. That run uses no game files or
-     secrets and finishes in about 10 minutes.
-3. Wait. The first build translates Halo and builds the Xbox engine from scratch, so it takes a few
-   hours on GitHub's free Mac; the run stops after 5 hours 40 minutes. Nothing carries over between
-   runs, so every run is a full build.
+     secrets and finishes in about 7 minutes.
+3. Wait. Each run translates Halo and its DLLs and builds the Xbox engine from scratch on GitHub's
+   free Mac (3 cores, 7 GB of memory), so it takes much longer than the 15-minute Xbox-only build;
+   expect a few hours. The run stops after 5 hours 40 minutes. Nothing carries over between runs.
 4. Open the finished run and download its artifact (kept for 7 days). It holds one `.7z` archive.
 5. Open the archive with your `HALOPAD_BUILD_PASSWORD`: [7-Zip](https://www.7-zip.org) on Windows,
    Keka on a Mac or `7z x` on Linux. Inside are:

@@ -9,8 +9,6 @@ name: Build HaloPad (both editions, from your game files)
 # password before being kept as this run's artifact for 7 days. Nothing is published.
 # Only want the Xbox edition? "Build HaloPad (Xbox edition)" needs no game files.
 on:
-  push:  # TEMPORARY: tools check on the development branch
-    branches: [claude/vibrant-faraday-8k30r8]
   workflow_dispatch:
     inputs:
       platform:
@@ -19,7 +17,7 @@ on:
         options: [iPhone and iPad, Mac]
         default: iPhone and iPad
       tools_check:
-        description: Only test the Mac tools and Wine (no game files or secrets used; about 10 minutes)
+        description: Only test the Mac tools and Wine (no game files or secrets used; about 7 minutes)
         type: boolean
         default: false
 permissions:
@@ -33,7 +31,7 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: '1'
       HOMEBREW_NO_INSTALL_CLEANUP: '1'
       APP_VERSION: 0.3.16
-      TOOLS_CHECK: ${{ (github.event_name == 'push' || inputs.tools_check) && 'true' || 'false' }}
+      TOOLS_CHECK: ${{ inputs.tools_check && 'true' || 'false' }}
       PLATFORM: ${{ inputs.platform == 'Mac' && 'mac' || 'ios' }}
       WINE_URL: https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.0_1/wine-stable-11.0_1-osx64.tar.xz
       WINE_SHA256: b50dc50ec7f41d58b115a6b685d4d1315ba3c797bd3aa0f49213f2703cb82388
@@ -54,8 +52,9 @@ jobs:
           echo "CPUs: $(sysctl -n hw.ncpu), memory: $(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
           df -h / "$RUNNER_TEMP"
       - name: Make room for the build
-        # The runner's other Xcode versions and SDKs are not used; both editions
-        # need more space than the Xbox edition alone.
+        # The runner's other Xcode versions are not used. Removing them raised free
+        # space from 46 GB to 102 GB in a tools check (about 4 minutes); both
+        # editions need more than the Xbox edition's 35 GB.
         run: |
           keep=$(cd "$DEVELOPER_DIR/../.." && pwd -P)
           for app in /Applications/Xcode*.app; do
@@ -117,8 +116,9 @@ jobs:
           HaloPad with both editions: your personal build. Never share or upload these files.
 
           iPhone or iPad
-            1. Sign and install the IPA with your own Apple ID (for example Sideloadly),
-               over any HaloPad already installed. Never delete HaloPad first.
+            1. Sign and install the IPA over any HaloPad already installed. Never delete
+               HaloPad first. Custom Edition needs a signing profile that allows Extended
+               Virtual Addressing and Increased Memory Limit (see the install guide).
             2. Copy Halo-CE.halopad.zip to your device (Files app).
             3. Open HaloPad, choose Custom Edition, then Choose Prepared Package... and pick it.
             4. For the Xbox edition, choose Add Your Xbox Disc and pick your .iso or .xiso.
