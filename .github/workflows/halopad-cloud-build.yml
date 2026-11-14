@@ -1,0 +1,164 @@
+name: Build HaloPad (both editions, from your game files)
+# Builds HaloPad with both editions, the Xbox edition and Halo Custom Edition (PC),
+# on GitHub's free Apple silicon Mac runner, so you need no Mac of your own. It runs
+# the same builder as PadMint (scripts/builder/build.sh). Your fork is public, so your
+# files never go into it: three repository secrets give the run a private link to
+# your HaloCESetup.exe, your product key and a password (docs/BUILD-IN-THE-CLOUD.md).
+# The finished IPA (or Mac app) and its game package contain translated game code,
+# your game files and your product ID, so they are locked in a 7z archive with your
+# password before being kept as this run's artifact for 7 days. Nothing is published.
+# Only want the Xbox edition? "Build HaloPad (Xbox edition)" needs no game files.
+on:
+  push:  # TEMPORARY: tools check on the development branch
+    branches: [claude/vibrant-faraday-8k30r8]
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Where you will play
+        type: choice
+        options: [iPhone and iPad, Mac]
+        default: iPhone and iPad
+      tools_check:
+        description: Only test the Mac tools and Wine (no game files or secrets used; about 10 minutes)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 340
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      APP_VERSION: 0.3.16
+      TOOLS_CHECK: ${{ (github.event_name == 'push' || inputs.tools_check) && 'true' || 'false' }}
+      PLATFORM: ${{ inputs.platform == 'Mac' && 'mac' || 'ios' }}
+      WINE_URL: https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.0_1/wine-stable-11.0_1-osx64.tar.xz
+      WINE_SHA256: b50dc50ec7f41d58b115a6b685d4d1315ba3c797bd3aa0f49213f2703cb82388
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check your build secrets
+        if: env.TOOLS_CHECK != 'true'
+        env:
+          HALOCE_SETUP_URL: ${{ secrets.HALOCE_SETUP_URL }}
+          HALO_PRODUCT_KEY: ${{ secrets.HALO_PRODUCT_KEY }}
+          HALOPAD_BUILD_PASSWORD: ${{ secrets.HALOPAD_BUILD_PASSWORD }}
+        run: python3 scripts/builder/cloud_inputs.py check
+      - name: Show this Mac's resources
+        run: |
+          sw_vers
+          echo "CPUs: $(sysctl -n hw.ncpu), memory: $(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
+          df -h / "$RUNNER_TEMP"
+      - name: Make room for the build
+        # The runner's other Xcode versions and SDKs are not used; both editions
+        # need more space than the Xbox edition alone.
+        run: |
+          keep=$(cd "$DEVELOPER_DIR/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] || [ -L "$app" ] || sudo rm -rf "$app" &
+          done
+          sudo rm -rf "$HOME/Library/Android" /usr/local/share/dotnet "$HOME/.dotnet" "$HOME/.ghcup" &
+          wait
+          sudo xcode-select -s "$keep"
+          ls -d /Applications/Xcode*.app
+          df -h /
+      - name: Install build tools
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          brew install sevenzip winetricks llvm lld cmake ninja sdl3
+          # Homebrew's LLVM stays off PATH, as on a player's Mac (the builder finds it there).
+          echo "/opt/homebrew/opt/lld/bin" >> "$GITHUB_PATH"
+      - name: Install Wine (docs/INSTALL-WINE.md) and Rosetta
+        run: |
+          /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/wine.tar.xz" "$WINE_URL"
+          echo "$WINE_SHA256  $RUNNER_TEMP/wine.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/wine"
+          tar -xJf "$RUNNER_TEMP/wine.tar.xz" -C "$RUNNER_TEMP/wine"
+          rm "$RUNNER_TEMP/wine.tar.xz"
+          echo "$RUNNER_TEMP/wine/Wine Stable.app/Contents/Resources/wine/bin" >> "$GITHUB_PATH"
+      - name: Check Wine before the long build
+        run: scripts/builder/check-wine.sh
+      - name: Download and verify your Custom Edition installer
+        if: env.TOOLS_CHECK != 'true'
+        env:
+          HALOCE_SETUP_URL: ${{ secrets.HALOCE_SETUP_URL }}
+          HALO_PRODUCT_KEY: ${{ secrets.HALO_PRODUCT_KEY }}
+          HALOPAD_BUILD_PASSWORD: ${{ secrets.HALOPAD_BUILD_PASSWORD }}
+        run: python3 scripts/builder/cloud_inputs.py fetch --out "$RUNNER_TEMP/halo-inputs"
+      - name: Build HaloPad with both editions
+        if: env.TOOLS_CHECK != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/private"
+          if [ "$PLATFORM" = mac ]; then
+            target=(--mac --zip "$RUNNER_TEMP/private/HaloPad-v$APP_VERSION-mac.zip")
+          else
+            target=(--ipa "$RUNNER_TEMP/private/HaloPad-v$APP_VERSION-ios-unsigned.ipa")
+          fi
+          scripts/builder/build.sh "$RUNNER_TEMP/halo-inputs" --xbox \
+            --app-version "$APP_VERSION" --app-build "$GITHUB_RUN_NUMBER" \
+            --product-key-file "$RUNNER_TEMP/halo-inputs/product-key.txt" \
+            --out "$RUNNER_TEMP/build" "${target[@]}"
+          df -h /
+      - name: Lock your build with your password
+        if: env.TOOLS_CHECK != 'true'
+        env:
+          HALOPAD_BUILD_PASSWORD: ${{ secrets.HALOPAD_BUILD_PASSWORD }}
+        run: |
+          cd "$RUNNER_TEMP/private"
+          mv ./*.data/Halo-CE.halopad.zip .
+          rmdir ./*.data
+          cat > READ-ME-FIRST.txt <<'EOF'
+          HaloPad with both editions: your personal build. Never share or upload these files.
+
+          iPhone or iPad
+            1. Sign and install the IPA with your own Apple ID (for example Sideloadly),
+               over any HaloPad already installed. Never delete HaloPad first.
+            2. Copy Halo-CE.halopad.zip to your device (Files app).
+            3. Open HaloPad, choose Custom Edition, then Choose Prepared Package... and pick it.
+            4. For the Xbox edition, choose Add Your Xbox Disc and pick your .iso or .xiso.
+
+          Mac
+            1. Unzip the Mac app and open it.
+            2. Choose Custom Edition, then Choose Prepared Package... and pick Halo-CE.halopad.zip.
+
+          Install guide: docs/INSTALL-IPHONE.md in the HaloPad repository.
+          EOF
+          shasum -a 256 HaloPad-* Halo-CE.halopad.zip > SHA256SUMS
+          ls -l
+          mkdir -p "$RUNNER_TEMP/locked"
+          archive="$RUNNER_TEMP/locked/HaloPad-v$APP_VERSION-both-editions-$PLATFORM-$GITHUB_RUN_NUMBER.7z"
+          # -mhe=on also hides the file names; the files are already compressed.
+          7zz a -t7z -mx=1 -mhe=on -bd -p"$HALOPAD_BUILD_PASSWORD" "$archive" . > /dev/null
+          7zz t -bd -p"$HALOPAD_BUILD_PASSWORD" "$archive" > /dev/null
+          ls -l "$RUNNER_TEMP/locked"
+      - name: Save the locked build
+        if: env.TOOLS_CHECK != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: HaloPad-v${{ env.APP_VERSION }}-both-editions-${{ env.PLATFORM }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/locked/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - name: Remove your files from the runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/halo-inputs" "$RUNNER_TEMP/private"
+      - name: Summary
+        if: success()
+        run: |
+          if [ "$TOOLS_CHECK" = true ]; then
+            echo "Tools check passed: Xcode, Homebrew tools and Wine work on this runner. Run again without the tools check to build." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "Your build is ready. Download the artifact below (it stays for 7 days)."
+              echo
+              echo "It holds one .7z archive locked with your **HALOPAD_BUILD_PASSWORD**. Open it with 7-Zip (Windows),"
+              echo "Keka (Mac) or \`7z x\` (Linux), then follow **READ-ME-FIRST.txt** inside."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
